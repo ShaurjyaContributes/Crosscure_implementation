@@ -9,13 +9,28 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..db_models import (
-    UserDB, SymptomLogDB, AppointmentDB, PrescriptionDB, ClinicSessionDB, HealthRecordDB
+    UserDB, SymptomLogDB, AppointmentDB, PrescriptionDB, ClinicSessionDB, HealthRecordDB,
+    PrevisitCallSlotDB, PrevisitSessionDB, HealthReportSessionDB,
 )
 from ..consent.models import ConsentAction
 from ..consent.store import ConsentStore
 from ..stages.pre_visit.question_generator import generate_checkin, inject_followup
 from ..stages.pre_visit.brief_generator import generate_brief
-from ..stages.clinic.session_manager import start_session, process_turn, end_session
+from ..stages.clinic.session_manager import (
+    start_session, process_turn, end_session,
+)
+from ..stages.previsit_call.session_manager import (
+    start_session as previsit_start_session,
+    process_turn as previsit_process_turn,
+    end_session as previsit_end_session,
+    schedule_slot as previsit_schedule_slot,
+    list_slots as previsit_list_slots,
+)
+from ..stages.health_report.session_manager import (
+    start_session as report_start_session,
+    process_turn as report_process_turn,
+    end_session as report_end_session,
+)
 from ..stages.therapy.detector import evaluate_outcomes
 from ..ingestion.service import ingest_fhir_json, ingest_text_as_records
 from ..events import bus as event_bus
@@ -431,3 +446,89 @@ def get_profile(user: UserDB = Depends(require_patient), db: Session = Depends(g
         "date_of_birth": str(user.date_of_birth) if user.date_of_birth else None,
         "consents": [c.model_dump() for c in consents],
     }
+
+
+# ── Pre-Visit Call ─────────────────────────────────────────────────────────────
+
+class PrevisitScheduleRequest(BaseModel):
+    scheduled_at: str  # ISO datetime
+    appointment_id: Optional[str] = None
+
+
+@router.post("/previsit/schedule")
+def schedule_previsit(
+    req: PrevisitScheduleRequest,
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    try:
+        scheduled_dt = datetime.fromisoformat(req.scheduled_at)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid datetime format")
+    return previsit_schedule_slot(user.id, scheduled_dt, db, req.appointment_id)
+
+
+@router.get("/previsit/slots")
+def get_previsit_slots(
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return {"slots": previsit_list_slots(user.id, db)}
+
+
+@router.post("/previsit/session/start")
+def start_previsit_session(
+    slot_id: Optional[str] = Body(default=None),
+    appointment_id: Optional[str] = Body(default=None),
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return previsit_start_session(user.id, db, slot_id, appointment_id)
+
+
+@router.post("/previsit/session/{session_id}/turn")
+def previsit_turn(
+    session_id: str,
+    req: TurnRequest,
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return previsit_process_turn(session_id, user.id, req.content, db)
+
+
+@router.post("/previsit/session/{session_id}/end")
+def end_previsit_session(
+    session_id: str,
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return previsit_end_session(session_id, user.id, db)
+
+
+# ── Health Condition Report ────────────────────────────────────────────────────
+
+@router.post("/health-report/session/start")
+def start_health_report_session(
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return report_start_session(user.id, db)
+
+
+@router.post("/health-report/session/{session_id}/turn")
+def health_report_turn(
+    session_id: str,
+    req: TurnRequest,
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return report_process_turn(session_id, user.id, req.content, db)
+
+
+@router.post("/health-report/session/{session_id}/end")
+def end_health_report_session(
+    session_id: str,
+    user: UserDB = Depends(require_patient),
+    db: Session = Depends(get_db),
+):
+    return report_end_session(session_id, user.id, db)

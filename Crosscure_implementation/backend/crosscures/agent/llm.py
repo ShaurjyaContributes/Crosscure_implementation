@@ -2,22 +2,15 @@
 import uuid
 import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 import anthropic
 
 from ..config import get_settings
 from ..db_models import AuditEntryDB
 from sqlalchemy.orm import Session
 
-settings = get_settings()
-_client: Optional[anthropic.Anthropic] = None
-
-
 def get_client() -> anthropic.Anthropic:
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-    return _client
+    return anthropic.Anthropic(api_key=get_settings().anthropic_api_key)
 
 
 class LLMResponse:
@@ -44,7 +37,7 @@ def call_llm(
     purpose: str,
     db: Session,
     max_tokens: int = 2048,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-sonnet-4-6",
 ) -> LLMResponse:
     call_id = str(uuid.uuid4())
     client = get_client()

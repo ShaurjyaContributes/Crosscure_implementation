@@ -4,14 +4,13 @@ from typing import List
 
 
 DOSE_CHANGE_PATTERNS = [
-    r"\b(increase|decrease|double|halve|stop taking|discontinue|change your dose)\b",
-    r"\btake \d+\s?(mg|ml|mcg|units?)\b",
+    r"\b(increase|decrease|double|halve|stop taking|discontinue|change your dose|adjust your dose)\b",
+    r"\b(you should now take|I recommend taking|switch to|replace .{1,20} with)\b",
     r"\binstead of\b.*\b(mg|dose)\b",
 ]
 
 DIAGNOSTIC_PATTERNS = [
-    r"\byou have\b",
-    r"\byou are diagnosed\b",
+    r"\byou are diagnosed with\b",
     r"\byou (likely|probably|definitely) have\b",
 ]
 

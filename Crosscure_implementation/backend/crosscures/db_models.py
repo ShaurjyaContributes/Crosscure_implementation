@@ -241,6 +241,46 @@ class AuditEntryDB(Base):
     patient = relationship("UserDB", back_populates="audit_entries")
 
 
+class PrevisitCallSlotDB(Base):
+    __tablename__ = "previsit_call_slots"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    patient_id = Column(String, ForeignKey("users.id"), nullable=False)
+    appointment_id = Column(String, nullable=True)
+    scheduled_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, default=15)
+    status = Column(String, default="scheduled")  # scheduled | completed | cancelled
+    session_id = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PrevisitSessionDB(Base):
+    __tablename__ = "previsit_sessions"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    patient_id = Column(String, ForeignKey("users.id"), nullable=False)
+    slot_id = Column(String, nullable=True)
+    appointment_id = Column(String, nullable=True)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+    turns = Column(JSON, default=list)
+    status = Column(String, default="active")
+    summary = Column(JSON, nullable=True)
+
+
+class HealthReportSessionDB(Base):
+    __tablename__ = "health_report_sessions"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    patient_id = Column(String, ForeignKey("users.id"), nullable=False)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+    turns = Column(JSON, default=list)
+    status = Column(String, default="active")
+    ava_question_count = Column(Integer, default=0)
+    summary = Column(JSON, nullable=True)
+
+
 class WearableSampleDB(Base):
     __tablename__ = "wearable_samples"
 
